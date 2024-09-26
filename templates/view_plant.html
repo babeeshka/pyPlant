@@ -1,0 +1,17 @@
+<!-- templates/view_plant.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ plant.common_name }}</title>
+</head>
+<body>
+    <h1>{{ plant.common_name }}</h1>
+    <p>Scientific Name: {{ plant.scientific_name }}</p>
+    <p>Watering Frequency: {{ plant.watering_frequency }}</p>
+    <p>Sunlight Requirements: {{ plant.sunlight_requirements }}</p>
+    <a href="{{ url_for('main.edit_plant', plant_id=plant.id) }}">Edit</a>
+    <form action="{{ url_for('main.delete_plant', plant_id=plant.id) }}" method="post">
+        <input type="submit" value="Delete">
+    </form>
+</body>
+</html>

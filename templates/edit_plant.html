@@ -1,0 +1,25 @@
+<!-- templates/edit_plant.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edit {{ plant.common_name }}</title>
+</head>
+<body>
+    <h1>Edit {{ plant.common_name }}</h1>
+    <form method="post">
+        <label for="common_name">Common Name:</label>
+        <input type="text" id="common_name" name="common_name" value="{{ plant.common_name }}">
+        <br>
+        <label for="scientific_name">Scientific Name:</label>
+        <input type="text" id="scientific_name" name="scientific_name" value="{{ plant.scientific_name }}">
+        <br>
+        <label for="watering_frequency">Watering Frequency:</label>
+        <input type="number" id="watering_frequency" name="watering_frequency" value="{{ plant.watering_frequency }}">
+        <br>
+        <label for="sunlight_requirements">Sunlight Requirements:</label>
+        <input type="text" id="sunlight_requirements" name="sunlight_requirements" value="{{ plant.sunlight_requirements }}">
+        <br>
+        <input type="submit" value="Update">
+    </form>
+</body>
+</html>
