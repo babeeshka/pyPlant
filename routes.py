@@ -1,78 +1,82 @@
 # routes.py
-from flask import Blueprint, request, render_template, redirect, url_for
-from models import db, Plant
-from utils.perennial_api import fetch_plant_data
+from flask import Blueprint, request, jsonify
+from operations import get_plant_by_id
+from services.plant_service import (
+    add_plant,
+    find_all_plants_with_pagination,
+    get_plant_by_any_id,
+    update_plant_details,
+    remove_plant_from_db
+)
+from services.perenual_service import fetch_species_list, fetch_plant_details_by_id
+import logging
 
-main_routes = Blueprint('main', __name__)
+api_routes = Blueprint('api', __name__)
 
-@main_routes.route('/fetch_plant', methods=['GET', 'POST'])
-def fetch_plant():
-    if request.method == 'POST':
-        plant_name = request.form['plant_name']
-        data = fetch_plant_data(plant_name)
-        if data:
-            # Assuming data contains a list of plants
-            for plant_info in data['plants']:
-                plant = Plant(
-                    common_name=plant_info.get('common_name'),
-                    scientific_name=plant_info.get('scientific_name'),
-                    watering_frequency=plant_info.get('watering').get('frequency'),
-                    sunlight_requirements=plant_info.get('sunlight')
-                )
-                db.session.add(plant)
-            db.session.commit()
-            return redirect(url_for('main.view_plants'))
+logging.basicConfig(level=logging.DEBUG)  #  set logging level to DEBUG for troubleshooting
+logger = logging.getLogger(__name__)
+
+# Fetch plant data from Perenual API
+@api_routes.route('/plants/fetch', methods=['GET'])
+def api_fetch_species():
+    page = request.args.get('page', 1, type=int)
+    
+    logger.debug(f"Request received to fetch species list for page: {page}")
+    
+    try:
+        species_data = fetch_species_list(page)
+        
+        if species_data:
+            logger.debug(f"Species Data Retrieved: {species_data}")
+            return jsonify({'count': len(species_data), 'plants': species_data}), 200
         else:
-            return "Error fetching data from Perennial API", 500
-    return render_template('fetch_plant.html')
+            logger.error("No data retrieved or data was empty.")
+            return jsonify({'error': 'No data found'}), 404
+    except Exception as e:
+        logger.error(f"Error in fetching species data: {e}")
+        return jsonify({'error': str(e)}), 500
 
-# routes.py (continued)
+# fetch plant by ID from the Perenual API only
+@api_routes.route('/plants/<int:plant_id>', methods=['GET'])
+def api_get_plant_from_api(plant_id):
+    try:
+        logger.info(f"Fetching plant details from Perenual API for ID: {plant_id}")
+        plant_data = fetch_plant_details_by_id(plant_id)
+        
+        if plant_data:
+            logger.info(f"Fetched plant data from Perenual API for ID: {plant_id}")
+            return jsonify(plant_data), 200
+        else:
+            logger.error(f"Plant with ID {plant_id} not found in Perenual API.")
+            return jsonify({'error': 'Plant not found in Perenual API'}), 404
 
-@main_routes.route('/plants')
-def view_plants():
-    plants = Plant.query.all()
-    return render_template('view_plants.html', plants=plants)
+    except Exception as e:
+        logger.error(f"Error fetching plant by ID {plant_id} from Perenual API: {e}")
+        return jsonify({'error': str(e)}), 500
 
-@main_routes.route('/plant/<int:plant_id>')
-def view_plant(plant_id):
-    plant = Plant.query.get_or_404(plant_id)
-    return render_template('view_plant.html', plant=plant)
+#  CRUD operations on plants
+@api_routes.route('/plants', methods=['POST'])
+def api_add_plant():
+    data = request.json
+    try:
+        new_plant = add_plant(data)
+        return jsonify({'message': 'Plant added successfully', 'plant': new_plant.__dict__}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
 
-@main_routes.route('/plant/<int:plant_id>/edit', methods=['GET', 'POST'])
-def edit_plant(plant_id):
-    plant = Plant.query.get_or_404(plant_id)
-    if request.method == 'POST':
-        plant.common_name = request.form['common_name']
-        plant.scientific_name = request.form['scientific_name']
-        plant.watering_frequency = request.form['watering_frequency']
-        plant.sunlight_requirements = request.form['sunlight_requirements']
-        db.session.commit()
-        return redirect(url_for('main.view_plant', plant_id=plant.id))
-    return render_template('edit_plant.html', plant=plant)
+@api_routes.route('/plants/<int:plant_id>', methods=['PUT'])
+def api_update_plant(plant_id):
+    data = request.json
+    try:
+        updated_plant = update_plant_details(plant_id, data)
+        return jsonify({'message': 'Plant updated successfully', 'plant': updated_plant.__dict__})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
 
-@main_routes.route('/plant/<int:plant_id>/delete', methods=['POST'])
-def delete_plant(plant_id):
-    plant = Plant.query.get_or_404(plant_id)
-    db.session.delete(plant)
-    db.session.commit()
-    return redirect(url_for('main.view_plants'))
-
-# routes.py (continued)
-import io
-import base64
-import matplotlib.pyplot as plt
-from flask import Response
-
-@main_routes.route('/analytics')
-def analytics():
-    df = get_plant_data()
-    img = io.BytesIO()
-    plt.figure(figsize=(10,6))
-    df['watering_frequency'].hist()
-    plt.title('Watering Frequency Distribution')
-    plt.xlabel('Watering Frequency')
-    plt.ylabel('Number of Plants')
-    plt.savefig(img, format='png')
-    img.seek(0)
-    plot_url = base64.b64encode(img.getvalue()).decode('utf8')
-    return render_template('analytics.html', plot_url=plot_url)
+@api_routes.route('/plants/<int:plant_id>', methods=['DELETE'])
+def api_delete_plant(plant_id):
+    try:
+        deleted_plant = remove_plant_from_db(plant_id)
+        return jsonify({'message': 'Plant deleted successfully', 'plant': deleted_plant.__dict__})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400

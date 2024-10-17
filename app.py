@@ -1,11 +1,12 @@
 # app.py
 from flask import Flask
-from routes import main_routes
+from routes import api_routes
 
 app = Flask(__name__)
 
-# Register Blueprints
-app.register_blueprint(main_routes)
+#  register the API routes blueprint
+app.register_blueprint(api_routes, url_prefix='/api')
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)
+

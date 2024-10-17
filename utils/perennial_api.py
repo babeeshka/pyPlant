@@ -1,14 +1,21 @@
-# utils/perennial_api.py
+# utils/perenual_api.py
 import requests
+import os
 
-API_BASE_URL = 'https://api.perennial.com/v1'
-API_KEY = 'your_api_key_here'
+API_KEY = os.getenv('PERENUAL_API_KEY')
+API_BASE_URL = 'https://perenual.com/api/v1'
 
-def fetch_plant_data(plant_name):
-    headers = {'Authorization': f'Bearer {API_KEY}'}
-    params = {'query': plant_name}
-    response = requests.get(f"{API_BASE_URL}/plants", headers=headers, params=params)
+def get_plant_data(query):
+    endpoint = f"{API_BASE_URL}/plants"
+    headers = {
+        'Authorization': f'Token {API_KEY}',
+    }
+    params = {
+        'q': query,
+        'page': 1,
+    }
+    response = requests.get(endpoint, headers=headers, params=params)
     if response.status_code == 200:
         return response.json()
     else:
-        return None
+        response.raise_for_status()
