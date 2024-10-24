@@ -11,65 +11,83 @@ load_dotenv()
 API_BASE_URL = 'https://perenual.com/api'
 API_KEY = os.getenv('PERENUAL_API_KEY')
 
-logging.basicConfig(level=logging.DEBUG)  #  DEBUG to capture all logs
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 plant_schema = PlantSchema()
 
-# species-list paginated
+# fetch species list from perenual api
 def fetch_species_list(page=1):
+    """fetches paginated list of plant species from perenual api"""
     try:
         params = {
             'key': API_KEY,
             'page': page
         }
         
+        # log full request details for debugging
         logger.debug(f"Fetching species list with URL: {API_BASE_URL}/species-list, params: {params}")
         
         response = requests.get(f"{API_BASE_URL}/species-list", params=params)
-        
         logger.debug(f"Response Status Code: {response.status_code}")
-        
         logger.debug(f"Response Content: {response.text}")
         
         response.raise_for_status()
-        
         data = response.json()
         
-        logger.debug(f"Parsed Data: {data}")
-        
+        # verify response structure and return data if valid
         if 'data' in data and data['data']:
             logger.debug(f"Species Data: {data['data']}")
             return data['data']
         else:
-            logger.error("Unexpected response structure: Missing 'data' key or 'data' is empty.")
+            logger.error("Missing or empty 'data' key in response")
             return []
         
     except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching species list: {e}")
         return None
 
-# fetch plant details by ID from Perenual API
+# fetch plant details by id
 def fetch_plant_details_by_id(plant_id):
+    """fetches detailed plant information by id with validation"""
     try:
         logger.info(f"Fetching plant details from Perenual API for plant ID: {plant_id}")
-        response = requests.get(f"{API_BASE_URL}/species/details/{plant_id}", params={'key': API_KEY})
         
+        url = f"{API_BASE_URL}/species/details/{plant_id}"
+        params = {'key': API_KEY}
+        
+        # log request details for debugging
+        logger.debug(f"Request URL: {url}")
+        logger.debug(f"Request params: {params}")
+        
+        response = requests.get(url, params=params)
         logger.debug(f"Response Status Code: {response.status_code}")
-        response.raise_for_status()  # This will raise an exception for HTTP errors
+        logger.debug(f"Response Headers: {dict(response.headers)}")
+        logger.debug(f"Raw Response Content: {response.text[:1000]}...")
         
-        logger.debug(f"Response Content: {response.text}")
+        response.raise_for_status()
         plant_data = response.json()
-
+        
         try:
-            validated_data = plant_schema.load(plant_data)
+            # check for api error response
+            if 'error' in plant_data:
+                logger.error(f"API returned an error: {plant_data['error']}")
+                return None
+                
+            # validate data structure, being lenient with missing fields
+            validated_data = plant_schema.load(plant_data, partial=True)
+            logger.info(f"Data validation successful for plant ID {plant_id}")
             return validated_data
+            
         except ValidationError as e:
-            logger.error(f"Validation error while fetching plant data: {e.messages}")
-            return None
+            # log validation issues but return raw data as fallback
+            logger.error(f"Validation error details: {e.messages}")
+            logger.error(f"Failed fields: {e.valid_data}")
+            logger.warning("Returning raw data due to validation failure")
+            return plant_data
 
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error fetching plant details from Perenual API for plant ID {plant_id}: {e}")
+        logger.error(f"Error fetching plant details for ID {plant_id}: {e}")
         return None
 
 # plant disease by plant ID

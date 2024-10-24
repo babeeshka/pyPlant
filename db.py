@@ -78,7 +78,7 @@ def create_tables():
                 default_image OBJECT,
                 care_guides STRING,
                 volume_water_requirement ARRAY,
-                depth_water_requirement ARRAY,  -- Changed from OBJECT to ARRAY
+                depth_water_requirement ARRAY,
                 pruning_month ARRAY,
                 pruning_count ARRAY,
                 watering_period STRING,
